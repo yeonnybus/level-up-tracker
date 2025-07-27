@@ -1,6 +1,7 @@
-import { LoginForm } from "@/components/LoginForm";
-import { SignUpForm } from "@/components/SignUpForm";
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { LoginForm } from "./LoginForm";
+import { SignUpForm } from "./SignUpForm";
 
 type AuthMode = "login" | "signup";
 
@@ -14,9 +15,15 @@ export const Auth: React.FC<AuthProps> = ({
   defaultMode = "login",
 }) => {
   const [mode, setMode] = useState<AuthMode>(defaultMode);
+  const navigate = useNavigate();
 
   const toggleMode = () => {
     setMode(mode === "login" ? "signup" : "login");
+  };
+
+  const handleSignUpSuccess = () => {
+    // 회원가입 성공 시 프로필 설정 페이지로 이동
+    navigate("/profile-setup");
   };
 
   return (
@@ -24,7 +31,7 @@ export const Auth: React.FC<AuthProps> = ({
       {mode === "login" ? (
         <LoginForm onSuccess={onSuccess} onToggleMode={toggleMode} />
       ) : (
-        <SignUpForm onSuccess={onSuccess} onToggleMode={toggleMode} />
+        <SignUpForm onSuccess={handleSignUpSuccess} onToggleMode={toggleMode} />
       )}
     </div>
   );

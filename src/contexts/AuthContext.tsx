@@ -1,6 +1,6 @@
-import { supabase } from "@/lib/supabase";
 import type { Session, User } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 import { AuthContext } from "./auth-context";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({

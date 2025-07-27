@@ -53,8 +53,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
 
     try {
       await signUp(email, password);
-      setMessage("회원가입이 완료되었습니다. 이메일을 확인해주세요.");
-      window.location.reload();
+      setMessage("회원가입이 완료되었습니다. 프로필을 설정해주세요.");
+      // 프로필 설정 페이지로 이동하기 위해 onSuccess 호출
       onSuccess?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.");

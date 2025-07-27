@@ -108,6 +108,12 @@ export interface GroupSharedTask {
   shared_at: string;
 }
 
+// Extended Group Shared Task with relations
+export interface GroupSharedTaskWithDetails extends GroupSharedTask {
+  task: Task;
+  shared_by_user: Pick<User, "id" | "full_name" | "username">;
+}
+
 // Extended Types (with relations)
 export interface TaskWithLogs extends Task {
   time_logs: TaskTimeLog[];
@@ -134,6 +140,23 @@ export interface GroupWithSharedTasks extends Group {
     task: Task;
     shared_by_user: Pick<User, "id" | "full_name" | "username">;
   })[];
+}
+
+// Group Progress Types
+export interface MemberProgress {
+  completedTasks: number;
+  activeTasks: number;
+  totalTasks: number;
+  totalTimeMinutes: number;
+  points: number;
+  completionRate: number;
+}
+
+export interface GroupMemberWithProgress {
+  member: GroupMembership & {
+    user: Pick<User, "id" | "full_name" | "username" | "avatar_url">;
+  };
+  progress: MemberProgress;
 }
 
 // Form Types
