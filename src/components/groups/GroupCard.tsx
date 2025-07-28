@@ -1,8 +1,8 @@
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Calendar, Copy, Settings, Users } from "lucide-react";
+import { Calendar, Copy, LogOut, Settings, Users } from "lucide-react";
 import React, { useState } from "react";
-import { deleteGroup, updateGroup } from "../../api/groups";
+import { deleteGroup, leaveGroup, updateGroup } from "../../api/groups";
 import type { GroupMembership, GroupWithMembers } from "../../types";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -44,6 +44,21 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   const handleGroupDelete = async (groupId: string) => {
     await deleteGroup(groupId);
     onGroupUpdate?.(); // 부모 컴포넌트에서 데이터 새로고침
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!confirm("정말 이 그룹을 나가시겠습니까?")) {
+      return;
+    }
+
+    try {
+      await leaveGroup(group.id);
+      onGroupUpdate?.(); // 부모 컴포넌트에서 데이터 새로고침
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "그룹 나가기에 실패했습니다."
+      );
+    }
   };
 
   const roleDisplayName = {
@@ -147,6 +162,24 @@ export const GroupCard: React.FC<GroupCardProps> = ({
                   {group.invite_code}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 그룹 나가기 버튼 (멤버/관리자만, 소유자는 제외) */}
+          {group.currentUserMembership.role !== "owner" && (
+            <div className="pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLeaveGroup();
+                }}
+                className="w-full h-8 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              >
+                <LogOut className="h-3 w-3 mr-1" />
+                그룹 나가기
+              </Button>
             </div>
           )}
         </div>

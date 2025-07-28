@@ -36,7 +36,7 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // 포모도로 모드 상태
-  const [isPomodoroMode, setIsPomodoroMode] = useState(false);
+  const [isPomodoroMode, setIsPomodoroMode] = useState(true);
   const [pomodoroSettings] = useState<PomodoroSettings>(
     DEFAULT_POMODORO_SETTINGS
   );
@@ -204,6 +204,12 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
       // 시작
       setIsRunning(true);
       setStartTime(new Date());
+
+      // 포모도로 모드가 활성화되어 있고 idle 상태라면 work 단계로 시작
+      if (isPomodoroMode && pomodoroPhase === "idle") {
+        setPomodoroPhase("work");
+        setPomodoroTimeRemaining(pomodoroSettings.workDuration * 60);
+      }
     }
   };
 
@@ -267,9 +273,15 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
         console.log("저장할 시간이 너무 짧음 (10초 미만)");
       }
 
-      // 상태 초기화
+      // 상태 초기화 (포모도로 포함)
       setElapsedTime(0);
       setTotalTime(0);
+
+      // 포모도로 상태도 초기화
+      setPomodoroPhase("idle");
+      setPomodoroSessionCount(0);
+      setPomodoroTimeRemaining(pomodoroSettings.workDuration * 60);
+
       console.log("타이머 상태 초기화 완료");
     } catch (error) {
       console.error("시간 저장 실패:", error);
@@ -287,6 +299,11 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
     setStartTime(null);
     setElapsedTime(0);
     setTotalTime(0);
+
+    // 포모도로 상태도 초기화
+    setPomodoroPhase("idle");
+    setPomodoroSessionCount(0);
+    setPomodoroTimeRemaining(pomodoroSettings.workDuration * 60);
   };
 
   // 시간 포맷팅 (HH:MM:SS)

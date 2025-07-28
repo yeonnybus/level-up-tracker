@@ -64,20 +64,27 @@ export const getUserGroups = async (): Promise<
 
   if (groupsError) throw groupsError;
 
-  // 3. 간단한 형태로 반환 (멤버 목록은 나중에 별도 구현)
-  const groupsWithMembers =
-    groups?.map((group) => {
+  // 3. 각 그룹의 실제 멤버 수 조회
+  const groupsWithMembers = await Promise.all(
+    groups?.map(async (group) => {
       const currentUserMembership = userMemberships.find(
         (m) => m.group_id === group.id
       );
 
+      // RPC 함수를 사용해서 실제 멤버 수 조회
+      const { data: memberships } = await supabase.rpc(
+        "get_group_memberships",
+        { group_id_param: group.id }
+      );
+
       return {
         ...group,
-        memberships: [], // 임시로 빈 배열
-        member_count: 1, // 임시로 1 (현재 사용자만)
+        memberships: [], // UI에서 멤버 목록이 필요하지 않으므로 빈 배열
+        member_count: memberships?.length || 0, // 실제 멤버 수
         currentUserMembership: currentUserMembership!,
       };
-    }) || [];
+    }) || []
+  );
 
   return groupsWithMembers;
 };
@@ -132,6 +139,26 @@ export const leaveGroup = async (groupId: string): Promise<void> => {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error("로그인이 필요합니다");
 
+  // 현재 사용자의 멤버십 확인
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id)
+    .single();
+
+  if (!membership) {
+    throw new Error("해당 그룹의 멤버가 아닙니다");
+  }
+
+  // 그룹 소유자는 탈퇴할 수 없음 (소유권 양도 후 탈퇴 가능)
+  if (membership.role === "owner") {
+    throw new Error(
+      "그룹 소유자는 탈퇴할 수 없습니다. 먼저 소유권을 양도해주세요."
+    );
+  }
+
+  // 멤버십 삭제
   const { error } = await supabase
     .from("group_memberships")
     .delete()
