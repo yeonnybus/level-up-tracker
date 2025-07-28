@@ -345,7 +345,7 @@ export const getGroupDetails = async (
 
   if (memberships && memberships.length > 0) {
     // RPC 함수 사용해서 그룹 멤버 프로필 조회
-    const { data: rpcProfiles, error: rpcError } = await supabase.rpc(
+    const { data: rpcProfiles } = await supabase.rpc(
       "get_group_member_profiles",
       { group_id_param: groupId }
     );
@@ -367,7 +367,7 @@ export const getGroupDetails = async (
     }
 
     // 프로필이 없는 멤버들을 위한 기본 프로필 생성
-    const userIds = memberships.map((m) => m.user_id);
+    const userIds = memberships.map((m: any) => m.user_id);
     const missingProfileUserIds = userIds.filter(
       (userId: string) => !profilesData.find((p) => p.id === userId)
     );
@@ -400,7 +400,7 @@ export const getGroupDetails = async (
   return {
     ...group,
     memberships:
-      memberships?.map((m) => {
+      memberships?.map((m: any) => {
         const userProfile = profilesData.find((p) => p.id === m.user_id);
         return {
           ...m,
@@ -547,10 +547,9 @@ export const getGroupMembersProgress = async (groupId: string) => {
   if (!membership) throw new Error("그룹에 접근할 권한이 없습니다");
 
   // 그룹 멤버들 조회 - RPC 함수 사용
-  const { data: members, error: membersError } = await supabase.rpc(
-    "get_group_memberships",
-    { group_id_param: groupId }
-  );
+  const { data: members } = await supabase.rpc("get_group_memberships", {
+    group_id_param: groupId,
+  });
 
   if (!members) return [];
 
@@ -559,16 +558,17 @@ export const getGroupMembersProgress = async (groupId: string) => {
 
   // 각 멤버의 진행상황 조회 - RPC 함수 사용
   // RPC로 모든 그룹 멤버의 태스크 조회
-  const { data: allGroupTasks, error: tasksRpcError } = await supabase.rpc(
-    "get_group_member_tasks",
-    { group_id_param: groupId }
-  );
+  const { data: allGroupTasks } = await supabase.rpc("get_group_member_tasks", {
+    group_id_param: groupId,
+  });
 
   // RPC로 모든 그룹 멤버의 타임로그 조회
-  const { data: allGroupTimeLogs, error: timeLogsRpcError } =
-    await supabase.rpc("get_group_member_time_logs", {
+  const { data: allGroupTimeLogs } = await supabase.rpc(
+    "get_group_member_time_logs",
+    {
       group_id_param: groupId,
-    });
+    }
+  );
 
   // RPC로 프로필 조회
   const { data: rpcProfiles } = await supabase.rpc(
@@ -577,7 +577,7 @@ export const getGroupMembersProgress = async (groupId: string) => {
   );
 
   // 각 멤버의 진행상황 계산
-  const membersProgress = members.map((member) => {
+  const membersProgress = members.map((member: any) => {
     // 프로필 정보 (RPC 결과에서 찾기)
     const profile = rpcProfiles?.find((p: any) => p.user_id === member.user_id);
 
@@ -650,7 +650,7 @@ export const getGroupMembersProgress = async (groupId: string) => {
 
   // 포인트 순으로 정렬
   const sortedProgress = membersProgress.sort(
-    (a, b) => b.progress.points - a.progress.points
+    (a: any, b: any) => b.progress.points - a.progress.points
   );
 
   return sortedProgress;

@@ -115,15 +115,15 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     console.log("현재 settings.workDuration:", settings.workDuration);
     console.log("설정될 timeRemaining:", settings.workDuration * 60);
     console.log("현재 state:", state);
-    
+
     // 현재 진행 중인 작업 시간을 누적에 기록
     if (state.phase === "work" && onWorkSessionComplete) {
       const elapsedSeconds = settings.workDuration * 60 - state.timeRemaining;
       const elapsedMinutes = Math.round(elapsedSeconds / 60);
-      
+
       console.log("elapsedSeconds:", elapsedSeconds);
       console.log("elapsedMinutes:", elapsedMinutes);
-      
+
       // 10초 이상일 때만 기록
       if (elapsedSeconds >= 10) {
         console.log("기록됨: ", elapsedMinutes);
@@ -140,7 +140,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       timeRemaining: settings.workDuration * 60,
       isRunning: false,
     };
-    
+
     console.log("새로운 state로 설정:", newState);
     setState(newState);
   };
@@ -149,14 +149,14 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     console.log("=== resetTimer 호출 ===");
     console.log("현재 settings.workDuration:", settings.workDuration);
     console.log("설정될 timeRemaining:", settings.workDuration * 60);
-    
+
     const newState = {
       phase: "idle" as const,
       sessionCount: 0,
       timeRemaining: settings.workDuration * 60,
       isRunning: false,
     };
-    
+
     console.log("새로운 state로 설정:", newState);
     setState(newState);
   };
