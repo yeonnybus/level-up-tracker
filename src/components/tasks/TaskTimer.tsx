@@ -8,11 +8,11 @@ import {
   Timer,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
+import { getRecurringTaskTotalTime } from "../../api/statistics";
 import { createTimeLog } from "../../api/timeLogs";
 import { useTaskProgress } from "../../hooks/useTaskProgress";
 import { supabase } from "../../lib/supabase";
 import type { Task } from "../../types";
-import { formatDuration } from "../../utils";
 import {
   DEFAULT_POMODORO_SETTINGS,
   NotificationManager,
@@ -49,6 +49,10 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
     NotificationManager.getInstance()
   );
 
+  // 고정 태스크의 총계 시간
+  const [allTimeMinutes, setAllTimeMinutes] = useState<number | null>(null);
+  const [allTimeLoading, setAllTimeLoading] = useState(false);
+
   // 디버깅용: 컴포넌트 마운트 시 Supabase 연결 확인
   useEffect(() => {
     const checkSupabaseConnection = async () => {
@@ -75,6 +79,17 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
     loading: progressLoading,
     refreshProgress,
   } = useTaskProgress(task.id);
+
+  // 고정 태스크의 총계 시간 로드
+  useEffect(() => {
+    if (task.is_recurring) {
+      setAllTimeLoading(true);
+      getRecurringTaskTotalTime(task.id)
+        .then(setAllTimeMinutes)
+        .catch(() => setAllTimeMinutes(null))
+        .finally(() => setAllTimeLoading(false));
+    }
+  }, [task.id, task.is_recurring]);
 
   // 포모도로 완료 처리
   const handlePomodoroComplete = useCallback(() => {
@@ -341,12 +356,20 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
             <div className="text-4xl md:text-6xl font-mono font-bold">
               {formatTime(currentDisplayTime)}
             </div>
-            <div className="text-sm text-muted-foreground">
-              현재 세션: {formatTime(elapsedTime)}
-            </div>
             {progress && !progressLoading && (
-              <div className="text-xs text-muted-foreground">
-                총 누적 시간: {formatDuration(totalMinutesSpent)}
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>
+                  주간 누적: {Math.floor(totalMinutesSpent / 60)}시간{" "}
+                  {(totalMinutesSpent % 60).toFixed(2)}분
+                </div>
+                {task.is_recurring &&
+                  allTimeMinutes !== null &&
+                  !allTimeLoading && (
+                    <div>
+                      총 누적: {Math.floor(allTimeMinutes / 60)}시간{" "}
+                      {(allTimeMinutes % 60).toFixed(2)}분
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -366,10 +389,7 @@ export const TaskTimer: React.FC<TaskTimerProps> = ({ task, onTimeLogged }) => {
                 />
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>
-                  {Math.floor(totalMinutesSpent / 60)}시간{" "}
-                  {totalMinutesSpent % 60}분
-                </span>
+                <span>{(totalMinutesSpent / 60).toFixed(1)}시간</span>
                 <span>목표: {task.target_time_hours}시간</span>
               </div>
             </div>

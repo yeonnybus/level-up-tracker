@@ -34,6 +34,75 @@ export const createTask = async (data: CreateTaskForm): Promise<Task> => {
   return task;
 };
 
+// 고정 태스크 주간 복제 함수
+export const createWeeklyRecurringTasks = async (
+  weekStart?: string
+): Promise<number> => {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("로그인이 필요합니다");
+
+  const targetWeek = weekStart || getWeekStart();
+
+  // 고정 태스크 중에서 해당 주차에 아직 생성되지 않은 것들을 찾아서 복제
+  const { data: recurringTasks, error: recurringError } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("user_id", user.user.id)
+    .eq("is_recurring", true);
+
+  if (recurringError) throw recurringError;
+
+  if (!recurringTasks || recurringTasks.length === 0) {
+    return 0;
+  }
+
+  let createdCount = 0;
+
+  for (const task of recurringTasks) {
+    // 해당 주차에 이미 같은 태스크가 있는지 확인
+    const { data: existingTask, error: checkError } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("user_id", user.user.id)
+      .eq("week_start", targetWeek)
+      .eq("title", task.title)
+      .eq("task_type", task.task_type)
+      .or(`id.eq.${task.id},original_task_id.eq.${task.id}`)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    // 이미 존재하면 건너뛰기
+    if (existingTask) {
+      continue;
+    }
+
+    // 새 태스크 생성
+    const newTaskData = {
+      user_id: user.user.id,
+      title: task.title,
+      description: task.description,
+      task_type: task.task_type,
+      target_time_hours: task.target_time_hours,
+      target_quantity: task.target_quantity,
+      week_start: targetWeek,
+      status: "active" as const,
+      is_recurring: true,
+      original_task_id: task.original_task_id || task.id,
+    };
+
+    const { error: insertError } = await supabase
+      .from("tasks")
+      .insert(newTaskData);
+
+    if (insertError) throw insertError;
+
+    createdCount++;
+  }
+
+  return createdCount;
+};
+
 // 태스크 목록 조회 (주간 기준)
 export const getTasks = async (weekStart?: string): Promise<Task[]> => {
   const { data: user } = await supabase.auth.getUser();
@@ -199,6 +268,16 @@ export const calculateTaskProgress = async (
   }
 
   const isCompleted = progressPercentage >= 100;
+
+  // 100% 달성 시 태스크 상태를 completed로 자동 업데이트
+  if (isCompleted && task.status !== "completed") {
+    try {
+      await updateTask(taskId, { status: "completed" });
+      console.log(`태스크 ${taskId} 상태를 completed로 업데이트`);
+    } catch (error) {
+      console.error("태스크 상태 업데이트 실패:", error);
+    }
+  }
 
   return {
     task_id: taskId,

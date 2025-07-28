@@ -46,6 +46,8 @@ export interface Task {
   target_quantity?: number;
   week_start: string;
   status: TaskStatus;
+  is_recurring: boolean;
+  original_task_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -167,6 +169,7 @@ export interface CreateTaskForm {
   target_time_hours?: number;
   target_quantity?: number;
   week_start: string;
+  is_recurring?: boolean;
 }
 
 export interface CreateTimeLogForm {
@@ -197,6 +200,7 @@ export interface UpdateTaskForm {
   target_time_hours?: number;
   target_quantity?: number;
   status?: TaskStatus;
+  is_recurring?: boolean;
 }
 
 export interface JoinGroupForm {

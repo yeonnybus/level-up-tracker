@@ -51,9 +51,13 @@ function AppContent() {
         <Route
           path="/"
           element={
-            <AuthGuard>
-              <AppLayout />
-            </AuthGuard>
+            user ? (
+              <AuthGuard>
+                <AppLayout />
+              </AuthGuard>
+            ) : (
+              <Navigate to="/auth" replace />
+            )
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />

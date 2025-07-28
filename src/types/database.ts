@@ -77,6 +77,8 @@ export type Database = {
           target_quantity: number | null;
           week_start: string;
           status: TaskStatus;
+          is_recurring: boolean;
+          original_task_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -90,6 +92,8 @@ export type Database = {
           target_quantity?: number | null;
           week_start: string;
           status?: TaskStatus;
+          is_recurring?: boolean;
+          original_task_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -103,6 +107,8 @@ export type Database = {
           target_quantity?: number | null;
           week_start?: string;
           status?: TaskStatus;
+          is_recurring?: boolean;
+          original_task_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

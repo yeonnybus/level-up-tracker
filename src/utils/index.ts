@@ -8,14 +8,8 @@ export const formatDuration = (minutes: number): string => {
     return `${minutes}분`;
   }
 
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `${hours}시간`;
-  }
-
-  return `${hours}시간 ${remainingMinutes}분`;
+  const hours = minutes / 60;
+  return `${hours.toFixed(1)}시간`;
 };
 
 // 날짜 포맷팅 유틸리티

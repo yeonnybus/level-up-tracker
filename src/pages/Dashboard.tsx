@@ -213,7 +213,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium">
-                        {task.progress?.progress_percentage || 0}%
+                        {(task.progress?.progress_percentage || 0).toFixed(2)}%
                       </div>
                       <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
                         <div

@@ -386,6 +386,8 @@ export const getGroupDashboardStats = async (groupId: string) => {
       .in("user_id", memberIds)
       .eq("status", "completed");
 
+    console.log("그룹 대시보드 - 완료된 태스크:", completedTasks);
+
     // 이번 주 활동 (완료된 태스크)
     const { data: thisWeekTasks } = await supabase
       .from("tasks")
@@ -394,9 +396,17 @@ export const getGroupDashboardStats = async (groupId: string) => {
       .eq("status", "completed")
       .gte("updated_at", weekStart.toISOString());
 
+    console.log("그룹 대시보드 - 이번 주 완료된 태스크:", thisWeekTasks);
+
     // 포인트 계산 정책
     totalGroupPoints = (completedTasks?.length || 0) * 10; // 완료된 태스크당 10점
     thisWeekActivity = thisWeekTasks?.length || 0;
+
+    console.log("그룹 대시보드 - 포인트 계산:", {
+      completedTasksCount: completedTasks?.length || 0,
+      totalGroupPoints,
+      thisWeekActivity,
+    });
   }
 
   return {
@@ -455,6 +465,16 @@ export const getGroupMembersProgress = async (groupId: string) => {
       // 완료된 태스크
       const completedTasks =
         weekTasks?.filter((t) => t.status === "completed") || [];
+
+      console.log(`멤버 ${member.user_id} 진행상황:`, {
+        totalWeekTasks: weekTasks?.length || 0,
+        completedTasksCount: completedTasks.length,
+        completedTaskIds: completedTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+        })),
+      });
 
       // 활성 태스크
       const activeTasks = weekTasks?.filter((t) => t.status === "active") || [];

@@ -34,6 +34,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
   const [targetQuantity, setTargetQuantity] = useState<number | null>(
     task?.target_quantity || null
   );
+  const [isRecurring, setIsRecurring] = useState(task?.is_recurring || false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,6 +47,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
       setDescription(task.description || "");
       setTargetTimeHours(task.target_time_hours || null);
       setTargetQuantity(task.target_quantity || null);
+      setIsRecurring(task.is_recurring || false);
       setErrors({});
       setShowDeleteConfirm(false);
     }
@@ -88,6 +90,7 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
       const updateData: UpdateTaskForm = {
         title: title.trim(),
         description: description.trim() || undefined,
+        is_recurring: isRecurring,
       };
 
       // 태스크 타입에 따라 목표 값 설정
@@ -328,6 +331,56 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* 태스크 반복 설정 섹션 */}
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">태스크 반복 설정</Label>
+                <div className="grid gap-3">
+                  {[
+                    {
+                      value: false,
+                      label: "일회성",
+                      desc: "이번 주에만 실행하는 태스크",
+                    },
+                    {
+                      value: true,
+                      label: "고정",
+                      desc: "매주 자동으로 새 태스크가 생성됩니다",
+                    },
+                  ].map((option) => (
+                    <label
+                      key={option.value.toString()}
+                      className={`flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        isRecurring === option.value
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/50"
+                      } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="isRecurring"
+                        value={option.value.toString()}
+                        checked={isRecurring === option.value}
+                        onChange={(e) =>
+                          setIsRecurring(e.target.value === "true")
+                        }
+                        className="mt-1"
+                        disabled={isSubmitting}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">
+                          {option.label}
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          {option.desc}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* 전체 에러 메시지 */}

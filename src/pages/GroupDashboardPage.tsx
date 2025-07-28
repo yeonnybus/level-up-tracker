@@ -203,7 +203,7 @@ export const GroupDashboardPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span>
@@ -212,16 +212,11 @@ export const GroupDashboardPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>
-                시간 태스크 보너스: <strong>+시간당 1점</strong>
-              </span>
+              <span>진행률 100% 달성 시 완료 처리</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span>
-                주간 목표 달성: <strong>+20 보너스</strong>
-              </span>
-            </div>
+          </div>
+          <div className="mt-3 text-xs text-muted-foreground">
+            * 현재는 완료된 태스크에 대해서만 포인트가 부여됩니다
           </div>
         </CardContent>
       </Card>
@@ -291,7 +286,7 @@ export const GroupDashboardPage: React.FC = () => {
                   <div className="flex items-center gap-6 text-sm">
                     <div className="text-center">
                       <div className="font-bold text-lg text-blue-600">
-                        {memberData.progress.points}
+                        {memberData.progress.points.toFixed(2)}
                       </div>
                       <div className="text-gray-500">포인트</div>
                     </div>
@@ -311,7 +306,7 @@ export const GroupDashboardPage: React.FC = () => {
                     </div>
                     <div className="text-center">
                       <div className="font-bold">
-                        {memberData.progress.completionRate}%
+                        {memberData.progress.completionRate.toFixed(2)}%
                       </div>
                       <div className="text-gray-500">달성률</div>
                     </div>

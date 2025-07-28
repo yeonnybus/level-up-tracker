@@ -2,6 +2,58 @@ import { format, startOfWeek } from "date-fns";
 import { supabase } from "../lib/supabase";
 import type { GroupStats, TaskStats, WeeklyStats } from "../types";
 
+// 고정 태스크의 총 누적시간 조회 (모든 주차 합산)
+export const getRecurringTaskTotalTime = async (
+  taskId: string
+): Promise<number> => {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("로그인이 필요합니다");
+
+  // 해당 태스크 정보 조회
+  const { data: task, error: taskError } = await supabase
+    .from("tasks")
+    .select("id, original_task_id, title, is_recurring")
+    .eq("id", taskId)
+    .single();
+
+  if (taskError) throw taskError;
+  if (!task) throw new Error("태스크를 찾을 수 없습니다");
+
+  // 원본 태스크 ID 결정 (현재 태스크가 원본이면 자신의 ID, 아니면 original_task_id 사용)
+  const originalTaskId = task.original_task_id || task.id;
+
+  // 같은 원본에서 파생된 모든 태스크 ID 조회
+  const { data: relatedTasks, error: relatedError } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("user_id", user.user.id)
+    .or(`id.eq.${originalTaskId},original_task_id.eq.${originalTaskId}`);
+
+  if (relatedError) throw relatedError;
+
+  const allTaskIds = relatedTasks?.map((t) => t.id) || [taskId];
+
+  // 모든 관련 태스크의 시간 로그 합산
+  const { data: timeLogs, error: timeError } = await supabase
+    .from("task_time_logs")
+    .select("duration_minutes, duration_seconds")
+    .in("task_id", allTaskIds)
+    .eq("user_id", user.user.id);
+
+  if (timeError) throw timeError;
+
+  const totalTimeMinutes =
+    timeLogs?.reduce((sum, log) => {
+      const seconds = log.duration_seconds;
+      const minutes = log.duration_minutes;
+      return (
+        sum + (seconds ? Math.round((seconds / 60) * 100) / 100 : minutes || 0)
+      );
+    }, 0) || 0;
+
+  return totalTimeMinutes;
+};
+
 // 주간 통계 조회
 export const getWeeklyStats = async (
   weekStart?: string
