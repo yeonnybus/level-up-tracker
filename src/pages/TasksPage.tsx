@@ -1,4 +1,14 @@
-import { Clock, Edit, Grid3X3, List, Plus, Target } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Edit,
+  Grid3X3,
+  List,
+  Plus,
+  Target,
+  Timer,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { getRecurringTaskTotalTime } from "../api/statistics";
 import {
@@ -8,6 +18,7 @@ import {
 } from "../api/tasks";
 import { CreateTaskModal } from "../components/tasks/CreateTaskModal";
 import { EditTaskModal } from "../components/tasks/EditTaskModal";
+import { PomodoroTimer } from "../components/tasks/PomodoroTimer";
 import { TaskQuantityCounter } from "../components/tasks/TaskQuantityCounter";
 import { TaskTimer } from "../components/tasks/TaskTimer";
 import { Button } from "../components/ui/button";
@@ -28,6 +39,7 @@ export const TasksPage: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  const [isPomodoroExpanded, setIsPomodoroExpanded] = useState(false);
 
   // 태스크 진행률을 표시하는 컴포넌트
   const TaskProgressDisplay: React.FC<{
@@ -211,6 +223,38 @@ export const TasksPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* 독립 포모도로 타이머 */}
+      <div className="mb-8">
+        <Card className="border-dashed border-2 border-primary/20">
+          <CardHeader className="pb-3">
+            <Button
+              variant="ghost"
+              onClick={() => setIsPomodoroExpanded(!isPomodoroExpanded)}
+              className="flex items-center justify-between w-full p-0 h-auto"
+            >
+              <div className="flex items-center gap-2">
+                <Timer className="h-5 w-5 text-primary" />
+                <span className="text-lg font-semibold">포모도로 타이머</span>
+                <span className="text-sm text-muted-foreground">
+                  (기록 저장 없음)
+                </span>
+              </div>
+              {isPomodoroExpanded ? (
+                <ChevronUp className="h-5 w-5" />
+              ) : (
+                <ChevronDown className="h-5 w-5" />
+              )}
+            </Button>
+          </CardHeader>
+
+          {isPomodoroExpanded && (
+            <CardContent className="pt-0">
+              <PomodoroTimer />
+            </CardContent>
+          )}
+        </Card>
+      </div>
 
       {/* 태스크 목록 */}
       {tasks.length === 0 ? (
