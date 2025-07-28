@@ -145,11 +145,20 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error("로그인이 필요합니다");
 
-  const { error } = await supabase
-    .from("groups")
-    .delete()
-    .eq("id", groupId)
-    .eq("created_by", user.user.id);
+  // 권한 확인 (owner만)
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id)
+    .single();
+
+  if (!membership || membership.role !== "owner") {
+    throw new Error("그룹을 삭제할 권한이 없습니다");
+  }
+
+  // 그룹 삭제 (CASCADE로 관련 데이터도 함께 삭제됨)
+  const { error } = await supabase.from("groups").delete().eq("id", groupId);
 
   if (error) throw error;
 };
@@ -227,16 +236,34 @@ export const getGroupSharedTasks = async (
 // 그룹 정보 업데이트 (owner/admin만 가능)
 export const updateGroup = async (
   groupId: string,
-  data: Partial<CreateGroupForm>
+  data: { name: string; description?: string }
 ): Promise<Group> => {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error("로그인이 필요합니다");
 
+  // 권한 확인 (owner 또는 admin)
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id)
+    .single();
+
+  if (
+    !membership ||
+    (membership.role !== "owner" && membership.role !== "admin")
+  ) {
+    throw new Error("그룹을 수정할 권한이 없습니다");
+  }
+
   const { data: group, error } = await supabase
     .from("groups")
-    .update(data)
+    .update({
+      name: data.name,
+      description: data.description,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", groupId)
-    .eq("created_by", user.user.id)
     .select()
     .single();
 
@@ -476,4 +503,146 @@ export const getGroupMembersProgress = async (groupId: string) => {
 
   // 포인트 순으로 정렬
   return membersProgress.sort((a, b) => b.progress.points - a.progress.points);
+};
+
+// 멤버 역할 변경 (owner만 가능)
+export const changeGroupMemberRole = async (
+  groupId: string,
+  userId: string,
+  newRole: "admin" | "member"
+): Promise<void> => {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("로그인이 필요합니다");
+
+  // 권한 확인 (owner만)
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id)
+    .single();
+
+  if (!membership || membership.role !== "owner") {
+    throw new Error("멤버 역할을 변경할 권한이 없습니다");
+  }
+
+  // 역할 변경
+  const { error } = await supabase
+    .from("group_memberships")
+    .update({ role: newRole })
+    .eq("group_id", groupId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+};
+
+// 멤버 추방 (owner/admin만 가능)
+export const removeGroupMember = async (
+  groupId: string,
+  userId: string
+): Promise<void> => {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("로그인이 필요합니다");
+
+  // 권한 확인 (owner 또는 admin)
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id)
+    .single();
+
+  if (
+    !membership ||
+    (membership.role !== "owner" && membership.role !== "admin")
+  ) {
+    throw new Error("멤버를 추방할 권한이 없습니다");
+  }
+
+  // 대상 멤버의 역할 확인 (owner는 추방할 수 없음)
+  const { data: targetMembership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", userId)
+    .single();
+
+  if (targetMembership?.role === "owner") {
+    throw new Error("그룹 소유자는 추방할 수 없습니다");
+  }
+
+  // admin이 다른 admin을 추방하려는 경우 확인
+  if (membership.role === "admin" && targetMembership?.role === "admin") {
+    throw new Error("관리자는 다른 관리자를 추방할 수 없습니다");
+  }
+
+  // 멤버 제거
+  const { error } = await supabase
+    .from("group_memberships")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+};
+
+// 그룹 소유권 양도 (owner만 가능)
+export const transferGroupOwnership = async (
+  groupId: string,
+  newOwnerId: string
+): Promise<void> => {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error("로그인이 필요합니다");
+
+  // 권한 확인 (owner만)
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id)
+    .single();
+
+  if (!membership || membership.role !== "owner") {
+    throw new Error("그룹 소유권을 양도할 권한이 없습니다");
+  }
+
+  // 새 소유자가 그룹 멤버인지 확인
+  const { data: newOwnerMembership } = await supabase
+    .from("group_memberships")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", newOwnerId)
+    .single();
+
+  if (!newOwnerMembership) {
+    throw new Error("새 소유자가 그룹 멤버가 아닙니다");
+  }
+
+  // 트랜잭션으로 소유권 양도
+  // 1. 현재 소유자를 admin으로 변경
+  const { error: currentOwnerError } = await supabase
+    .from("group_memberships")
+    .update({ role: "admin" })
+    .eq("group_id", groupId)
+    .eq("user_id", user.user.id);
+
+  if (currentOwnerError) throw currentOwnerError;
+
+  // 2. 새 소유자를 owner로 변경
+  const { error: newOwnerError } = await supabase
+    .from("group_memberships")
+    .update({ role: "owner" })
+    .eq("group_id", groupId)
+    .eq("user_id", newOwnerId);
+
+  if (newOwnerError) {
+    // 롤백: 현재 소유자를 다시 owner로 변경
+    await supabase
+      .from("group_memberships")
+      .update({ role: "owner" })
+      .eq("group_id", groupId)
+      .eq("user_id", user.user.id);
+
+    throw newOwnerError;
+  }
 };

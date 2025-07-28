@@ -109,6 +109,7 @@ export const GroupsPage: React.FC = () => {
               key={group.id}
               group={group}
               onGroupClick={handleGroupClick}
+              onGroupUpdate={loadGroups}
             />
           ))}
         </div>

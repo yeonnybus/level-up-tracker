@@ -2,21 +2,26 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Calendar, Copy, Settings, Users } from "lucide-react";
 import React, { useState } from "react";
+import { deleteGroup, updateGroup } from "../../api/groups";
 import type { GroupMembership, GroupWithMembers } from "../../types";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { GroupSettingsModal } from "./GroupSettingsModal";
 
 interface GroupCardProps {
   group: GroupWithMembers & { currentUserMembership: GroupMembership };
   onGroupClick: (groupId: string) => void;
+  onGroupUpdate?: () => void; // 그룹 업데이트 후 새로고침용
 }
 
 export const GroupCard: React.FC<GroupCardProps> = ({
   group,
   onGroupClick,
+  onGroupUpdate,
 }) => {
   const [showInviteCode, setShowInviteCode] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const copyInviteCode = async () => {
     try {
@@ -28,6 +33,19 @@ export const GroupCard: React.FC<GroupCardProps> = ({
     }
   };
 
+  const handleGroupUpdate = async (
+    groupId: string,
+    data: { name: string; description?: string }
+  ) => {
+    await updateGroup(groupId, data);
+    onGroupUpdate?.(); // 부모 컴포넌트에서 데이터 새로고침
+  };
+
+  const handleGroupDelete = async (groupId: string) => {
+    await deleteGroup(groupId);
+    onGroupUpdate?.(); // 부모 컴포넌트에서 데이터 새로고침
+  };
+
   const roleDisplayName = {
     owner: "소유자",
     admin: "관리자",
@@ -35,8 +53,11 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-      <CardHeader className="pb-3" onClick={() => onGroupClick(group.id)}>
+    <Card
+      className="hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => onGroupClick(group.id)}
+    >
+      <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-lg font-semibold mb-1">
@@ -56,7 +77,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  // TODO: 그룹 설정 모달 열기
+                  setShowSettings(true);
                 }}
                 className="h-8 w-8 p-0"
               >
@@ -130,6 +151,15 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           )}
         </div>
       </CardContent>
+
+      {/* 그룹 설정 모달 */}
+      <GroupSettingsModal
+        group={group}
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onUpdate={handleGroupUpdate}
+        onDelete={handleGroupDelete}
+      />
     </Card>
   );
 };
