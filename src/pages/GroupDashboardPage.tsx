@@ -3,6 +3,7 @@ import {
   Award,
   Calendar,
   Clock,
+  LogOut,
   Target,
   Trophy,
   Users,
@@ -13,6 +14,7 @@ import {
   getGroupDashboardStats,
   getGroupDetails,
   getGroupMembersProgress,
+  leaveGroup,
 } from "../api/groups";
 import { Button } from "../components/ui/button";
 import {
@@ -21,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import { supabase } from "../lib/supabase";
 import type { GroupMemberWithProgress, GroupWithMembers } from "../types";
 
 interface GroupDashboardStats {
@@ -40,6 +43,7 @@ export const GroupDashboardPage: React.FC = () => {
   const [membersProgress, setMembersProgress] = useState<
     GroupMemberWithProgress[]
   >([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   console.log(membersProgress);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +55,11 @@ export const GroupDashboardPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // 병렬로 데이터 로드
-      const [groupData, statsData, membersData] = await Promise.all([
+      // 현재 사용자 정보 가져오기
+      const { data: userData } = await supabase.auth.getUser();
+      setCurrentUserId(userData.user?.id || null);
+
+      const [groupData, statsData, progressData] = await Promise.all([
         getGroupDetails(groupId),
         getGroupDashboardStats(groupId),
         getGroupMembersProgress(groupId),
@@ -60,22 +67,32 @@ export const GroupDashboardPage: React.FC = () => {
 
       setGroup(groupData);
       setStats(statsData);
-      setMembersProgress(membersData);
-
-      console.log("그룹 대시보드 최종 데이터:", {
-        group: groupData,
-        stats: statsData,
-        membersProgress: membersData,
-      });
+      setMembersProgress(progressData);
     } catch (err) {
       console.error("그룹 대시보드 로딩 실패:", err);
-      setError(
-        err instanceof Error ? err.message : "데이터를 불러오는데 실패했습니다"
-      );
+      setError("그룹 대시보드를 불러오는데 실패했습니다.");
     } finally {
       setLoading(false);
     }
   }, [groupId]);
+
+  const handleLeaveGroup = async () => {
+    if (!groupId || !group) return;
+
+    if (!confirm("정말 이 그룹을 나가시겠습니까?")) {
+      return;
+    }
+
+    try {
+      await leaveGroup(groupId);
+      alert("그룹을 나갔습니다.");
+      navigate("/groups");
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "그룹 나가기에 실패했습니다."
+      );
+    }
+  };
 
   useEffect(() => {
     loadGroupDashboard();
@@ -145,10 +162,25 @@ export const GroupDashboardPage: React.FC = () => {
             <span>초대 코드: {group.invite_code}</span>
           </div>
         </div>
-        <Button variant="outline" onClick={() => navigate("/groups")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          목록으로
-        </Button>
+        <div className="flex gap-2">
+          {/* 현재 사용자가 소유자가 아닌 경우에만 나가기 버튼 표시 */}
+          {currentUserId &&
+            group.memberships.find((m) => m.user_id === currentUserId)?.role !==
+              "owner" && (
+              <Button
+                variant="outline"
+                onClick={handleLeaveGroup}
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                그룹 나가기
+              </Button>
+            )}
+          <Button variant="outline" onClick={() => navigate("/groups")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            목록으로
+          </Button>
+        </div>
       </div>
 
       {/* 통계 카드들 */}

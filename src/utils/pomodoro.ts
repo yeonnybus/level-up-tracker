@@ -335,10 +335,10 @@ export interface PomodoroSettings {
 }
 
 export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
-  workDuration: 1,
-  shortBreakDuration: 5,
-  longBreakDuration: 15,
-  sessionsUntilLongBreak: 4,
+  workDuration: 50,
+  shortBreakDuration: 10,
+  longBreakDuration: 20,
+  sessionsUntilLongBreak: 3,
 };
 
 export type PomodoroPhase = "work" | "shortBreak" | "longBreak" | "idle";
