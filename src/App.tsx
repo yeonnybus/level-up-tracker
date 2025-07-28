@@ -6,6 +6,7 @@ import { AuthGuard } from "./components/AuthGuard";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./hooks/useAuth";
 import { Dashboard } from "./pages/Dashboard";
+import { EmailVerificationPage } from "./pages/EmailVerificationPage";
 import { GroupDashboardPage } from "./pages/GroupDashboardPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { ProfileSetupPage } from "./pages/ProfileSetupPage";
@@ -33,6 +34,10 @@ function AppContent() {
         <Route
           path="/auth"
           element={!user ? <Auth /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="/email-verification"
+          element={<EmailVerificationPage />}
         />
         <Route
           path="/profile-setup"

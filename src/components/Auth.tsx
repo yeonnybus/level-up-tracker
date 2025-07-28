@@ -22,8 +22,8 @@ export const Auth: React.FC<AuthProps> = ({
   };
 
   const handleSignUpSuccess = () => {
-    // 회원가입 성공 시 프로필 설정 페이지로 이동
-    navigate("/profile-setup");
+    // 회원가입 성공 시 이메일 확인 페이지로 이동
+    navigate("/email-verification");
   };
 
   return (
