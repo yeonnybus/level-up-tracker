@@ -1,9 +1,14 @@
 import { CheckCircle, Mail, RefreshCw } from "lucide-react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { supabase } from "../lib/supabase";
 
 export const EmailVerificationPage: React.FC = () => {
   const [isResending, setIsResending] = useState(false);
@@ -16,18 +21,24 @@ export const EmailVerificationPage: React.FC = () => {
 
     try {
       // 현재 사용자 정보 가져오기
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (user?.email) {
         const { error } = await supabase.auth.resend({
-          type: 'signup',
+          type: "signup",
           email: user.email,
         });
 
         if (error) {
-          setResendMessage("이메일 재발송에 실패했습니다. 잠시 후 다시 시도해주세요.");
+          setResendMessage(
+            "이메일 재발송에 실패했습니다. 잠시 후 다시 시도해주세요."
+          );
         } else {
-          setResendMessage("인증 이메일이 재발송되었습니다. 이메일을 확인해주세요.");
+          setResendMessage(
+            "인증 이메일이 재발송되었습니다. 이메일을 확인해주세요."
+          );
         }
       }
     } catch {
@@ -56,10 +67,11 @@ export const EmailVerificationPage: React.FC = () => {
         <CardContent className="space-y-6">
           <div className="text-center space-y-3">
             <p className="text-gray-600">
-              회원가입이 완료되었습니다!<br />
+              회원가입이 완료되었습니다!
+              <br />
               가입하신 이메일 주소로 인증 링크를 발송했습니다.
             </p>
-            
+
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2 text-green-800 mb-2">
                 <CheckCircle className="h-5 w-5" />
@@ -116,8 +128,10 @@ export const EmailVerificationPage: React.FC = () => {
           </div>
 
           <div className="text-xs text-gray-500 text-center">
-            이메일이 오지 않나요?<br />
-            스팸 폴더를 확인하거나 몇 분 후 "인증 이메일 재발송" 버튼을 눌러보세요.
+            이메일이 오지 않나요?
+            <br />
+            스팸 폴더를 확인하거나 몇 분 후 "인증 이메일 재발송" 버튼을
+            눌러보세요.
           </div>
         </CardContent>
       </Card>

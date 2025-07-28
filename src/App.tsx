@@ -35,10 +35,7 @@ function AppContent() {
           path="/auth"
           element={!user ? <Auth /> : <Navigate to="/" replace />}
         />
-        <Route
-          path="/email-verification"
-          element={<EmailVerificationPage />}
-        />
+        <Route path="/email-verification" element={<EmailVerificationPage />} />
         <Route
           path="/profile-setup"
           element={
