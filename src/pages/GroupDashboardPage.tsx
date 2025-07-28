@@ -28,6 +28,8 @@ interface GroupDashboardStats {
   totalPoints: number;
   thisWeekActivity: number;
   averagePoints: number;
+  thisWeekCompletedTasks: number;
+  averageCompletionRate: number;
 }
 
 export const GroupDashboardPage: React.FC = () => {
@@ -59,6 +61,12 @@ export const GroupDashboardPage: React.FC = () => {
       setGroup(groupData);
       setStats(statsData);
       setMembersProgress(membersData);
+
+      console.log("그룹 대시보드 최종 데이터:", {
+        group: groupData,
+        stats: statsData,
+        membersProgress: membersData,
+      });
     } catch (err) {
       console.error("그룹 대시보드 로딩 실패:", err);
       setError(
@@ -144,7 +152,7 @@ export const GroupDashboardPage: React.FC = () => {
       </div>
 
       {/* 통계 카드들 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">멤버 수</CardTitle>
@@ -182,14 +190,29 @@ export const GroupDashboardPage: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">이번 주 활동</CardTitle>
+            <CardTitle className="text-sm font-medium">이번 주 완료</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.thisWeekActivity}</div>
+            <div className="text-2xl font-bold">
+              {stats.thisWeekCompletedTasks}
+            </div>
             <p className="text-xs text-muted-foreground">
-              이번 주 완료된 태스크
+              이번 주 완료된 태스크 수
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">평균 완료율</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.averageCompletionRate}%
+            </div>
+            <p className="text-xs text-muted-foreground">전체 태스크 완료율</p>
           </CardContent>
         </Card>
       </div>

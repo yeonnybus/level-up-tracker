@@ -18,10 +18,6 @@ function AppContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        {/* Tailwind 테스트 */}
-        <div className="mb-4 p-4 bg-blue-500 text-white rounded-lg shadow-lg">
-          <p className="text-sm">Tailwind CSS 테스트</p>
-        </div>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">로딩 중...</p>

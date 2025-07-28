@@ -273,7 +273,6 @@ export const calculateTaskProgress = async (
   if (isCompleted && task.status !== "completed") {
     try {
       await updateTask(taskId, { status: "completed" });
-      console.log(`태스크 ${taskId} 상태를 completed로 업데이트`);
     } catch (error) {
       console.error("태스크 상태 업데이트 실패:", error);
     }

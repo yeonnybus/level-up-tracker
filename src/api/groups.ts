@@ -7,6 +7,7 @@ import type {
   GroupSharedTaskWithDetails,
   GroupWithMembers,
 } from "../types";
+import { getWeekStart } from "../utils";
 
 // 그룹 생성
 export const createGroup = async (data: CreateGroupForm): Promise<Group> => {
@@ -297,29 +298,76 @@ export const getGroupDetails = async (
 
   if (membershipError) throw new Error("그룹에 접근할 권한이 없습니다");
 
-  // 그룹의 모든 멤버 조회
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("group_memberships")
-    .select("*")
-    .eq("group_id", groupId);
+  // 그룹의 모든 멤버 조회 - RPC 함수 사용
+  const { data: memberships, error: membershipsError } = await supabase.rpc(
+    "get_group_memberships",
+    { group_id_param: groupId }
+  );
 
-  if (membershipsError) throw membershipsError;
+  if (membershipsError) {
+    throw membershipsError;
+  }
 
-  // 멤버들의 프로필 정보를 별도로 조회
+  // 멤버들의 프로필 정보를 RPC 함수로 조회 (RLS 우회)
   let profilesData: Array<{
     id: string;
     username?: string;
     full_name?: string;
     avatar_url?: string;
   }> = [];
-  if (memberships && memberships.length > 0) {
-    const userIds = memberships.map((m) => m.user_id);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name, avatar_url")
-      .in("id", userIds);
 
-    profilesData = profiles || [];
+  if (memberships && memberships.length > 0) {
+    // RPC 함수 사용해서 그룹 멤버 프로필 조회
+    const { data: rpcProfiles, error: rpcError } = await supabase.rpc(
+      "get_group_member_profiles",
+      { group_id_param: groupId }
+    );
+
+    if (rpcProfiles) {
+      profilesData = rpcProfiles.map(
+        (p: {
+          user_id: string;
+          username?: string;
+          full_name?: string;
+          avatar_url?: string;
+        }) => ({
+          id: p.user_id,
+          username: p.username,
+          full_name: p.full_name,
+          avatar_url: p.avatar_url,
+        })
+      );
+    }
+
+    // 프로필이 없는 멤버들을 위한 기본 프로필 생성
+    const userIds = memberships.map((m) => m.user_id);
+    const missingProfileUserIds = userIds.filter(
+      (userId: string) => !profilesData.find((p) => p.id === userId)
+    );
+
+    if (missingProfileUserIds.length > 0) {
+      for (const userId of missingProfileUserIds) {
+        try {
+          const { data: newProfile } = await supabase
+            .from("profiles")
+            .insert({
+              id: userId,
+              user_id: userId,
+              full_name: null,
+              username: null,
+              avatar_url: null,
+            })
+            .select()
+            .single();
+
+          if (newProfile) {
+            profilesData.push(newProfile);
+          }
+        } catch (error) {
+          // 프로필 생성 실패 시 무시
+        }
+      }
+    }
   }
 
   return {
@@ -332,7 +380,7 @@ export const getGroupDetails = async (
           user: {
             id: m.user_id,
             username: userProfile?.username || null,
-            full_name: userProfile?.full_name || null,
+            full_name: userProfile?.full_name || "새 멤버",
             avatar_url: userProfile?.avatar_url || null,
           },
         };
@@ -356,64 +404,103 @@ export const getGroupDashboardStats = async (groupId: string) => {
 
   if (!membership) throw new Error("그룹에 접근할 권한이 없습니다");
 
-  // 그룹 멤버 수
-  const { count: memberCount } = await supabase
-    .from("group_memberships")
-    .select("*", { count: "exact", head: true })
-    .eq("group_id", groupId);
+  // RPC 함수로 그룹 멤버십 조회 (RLS 우회)
+  const { data: groupMembers, error: membersError } = await supabase.rpc(
+    "get_group_memberships",
+    { group_id_param: groupId }
+  );
 
-  // 이번 주 시작일 계산
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // 월요일
-  weekStart.setHours(0, 0, 0, 0);
+  if (membersError) {
+    throw membersError;
+  }
 
-  // 그룹 포인트 계산 (멤버들의 완료된 태스크 기준)
-  const { data: groupMembers } = await supabase
-    .from("group_memberships")
-    .select("user_id")
-    .eq("group_id", groupId);
+  const memberCount = groupMembers?.length || 0;
+
+  // 이번 주 시작일 계산 (getWeekStart 함수 사용)
+  const weekStartStr = getWeekStart(); // "2025-07-28" 형식
 
   let totalGroupPoints = 0;
   let thisWeekActivity = 0;
+  let thisWeekCompletedTasks = 0;
+  let averageCompletionRate = 0;
 
-  if (groupMembers) {
-    const memberIds = groupMembers.map((m) => m.user_id);
+  if (groupMembers && groupMembers.length > 0) {
+    // RPC 함수로 그룹 멤버들의 태스크 조회
+    const { data: allGroupTasks, error: tasksError } = await supabase.rpc(
+      "get_group_member_tasks",
+      { group_id_param: groupId }
+    );
 
-    // 완료된 태스크 기준 포인트 계산
-    const { data: completedTasks } = await supabase
-      .from("tasks")
-      .select("*")
-      .in("user_id", memberIds)
-      .eq("status", "completed");
+    if (tasksError) {
+      throw tasksError;
+    }
 
-    console.log("그룹 대시보드 - 완료된 태스크:", completedTasks);
+    if (allGroupTasks) {
+      // 멤버별로 데이터를 그룹화하여 더 정확한 통계 계산
+      let totalCompletionRates = 0;
+      let totalMembersCount = 0; // 전체 멤버 수
 
-    // 이번 주 활동 (완료된 태스크)
-    const { data: thisWeekTasks } = await supabase
-      .from("tasks")
-      .select("*")
-      .in("user_id", memberIds)
-      .eq("status", "completed")
-      .gte("updated_at", weekStart.toISOString());
+      groupMembers.forEach((member: any) => {
+        totalMembersCount++; // 모든 멤버를 카운트
 
-    console.log("그룹 대시보드 - 이번 주 완료된 태스크:", thisWeekTasks);
+        const memberTasks = allGroupTasks.filter(
+          (task: any) => task.user_id === member.user_id
+        );
 
-    // 포인트 계산 정책
-    totalGroupPoints = (completedTasks?.length || 0) * 10; // 완료된 태스크당 10점
-    thisWeekActivity = thisWeekTasks?.length || 0;
+        // 이번 주 태스크인지 확인 (week_start 기준)
+        const thisWeekTasks = memberTasks.filter((task: any) => {
+          if (!task.week_start) {
+            return false;
+          }
 
-    console.log("그룹 대시보드 - 포인트 계산:", {
-      completedTasksCount: completedTasks?.length || 0,
-      totalGroupPoints,
-      thisWeekActivity,
-    });
+          // 문자열로 직접 비교
+          const isMatch = task.week_start === weekStartStr;
+          return isMatch;
+        });
+
+        // 이번 주 태스크 중 완료된 것
+        const thisWeekCompletedTasksForMember = thisWeekTasks.filter(
+          (task: any) => task.status === "completed"
+        );
+
+        // 이번 주 완료 태스크 수 합산
+        thisWeekCompletedTasks += thisWeekCompletedTasksForMember.length;
+
+        // 완료율 계산 - 이번 주 태스크 기준으로 변경!
+        let completionRate = 0;
+        if (thisWeekTasks.length > 0) {
+          completionRate =
+            (thisWeekCompletedTasksForMember.length / thisWeekTasks.length) *
+            100;
+        }
+        // 모든 멤버의 완료율을 합산 (이번 주 태스크가 없으면 0%)
+        totalCompletionRates += completionRate;
+      });
+
+      // 전체 완료된 태스크 (포인트 계산용)
+      const allCompletedTasks = allGroupTasks.filter(
+        (task: any) => task.status === "completed"
+      );
+
+      // 포인트 계산 정책
+      totalGroupPoints = allCompletedTasks.length * 10; // 완료된 태스크당 10점
+      thisWeekActivity = thisWeekCompletedTasks; // 이번 주 완료 태스크 수
+
+      // 평균 완료율 계산 - 전체 멤버 수로 나누기
+      averageCompletionRate =
+        totalMembersCount > 0
+          ? Math.round(totalCompletionRates / totalMembersCount)
+          : 0;
+    }
   }
 
   return {
-    memberCount: memberCount || 0,
+    memberCount,
     totalPoints: totalGroupPoints,
     thisWeekActivity,
     averagePoints: memberCount ? Math.round(totalGroupPoints / memberCount) : 0,
+    thisWeekCompletedTasks,
+    averageCompletionRate,
   };
 };
 
@@ -432,97 +519,114 @@ export const getGroupMembersProgress = async (groupId: string) => {
 
   if (!membership) throw new Error("그룹에 접근할 권한이 없습니다");
 
-  // 그룹 멤버들 조회
-  const { data: members } = await supabase
-    .from("group_memberships")
-    .select("*")
-    .eq("group_id", groupId);
+  // 그룹 멤버들 조회 - RPC 함수 사용
+  const { data: members, error: membersError } = await supabase.rpc(
+    "get_group_memberships",
+    { group_id_param: groupId }
+  );
 
   if (!members) return [];
 
-  // 이번 주 시작일
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-  weekStart.setHours(0, 0, 0, 0);
+  // 이번 주 시작일 (getWeekStart 함수 사용)
+  const weekStartStr = getWeekStart(); // "2025-07-28" 형식
 
-  // 각 멤버의 진행상황 조회
-  const membersProgress = await Promise.all(
-    members.map(async (member) => {
-      // 프로필 정보 조회
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, avatar_url")
-        .eq("id", member.user_id)
-        .single();
-
-      // 이번 주 태스크 통계
-      const { data: weekTasks } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("user_id", member.user_id)
-        .gte("week_start", weekStart.toISOString().split("T")[0]);
-
-      // 완료된 태스크
-      const completedTasks =
-        weekTasks?.filter((t) => t.status === "completed") || [];
-
-      console.log(`멤버 ${member.user_id} 진행상황:`, {
-        totalWeekTasks: weekTasks?.length || 0,
-        completedTasksCount: completedTasks.length,
-        completedTaskIds: completedTasks.map((t) => ({
-          id: t.id,
-          title: t.title,
-          status: t.status,
-        })),
-      });
-
-      // 활성 태스크
-      const activeTasks = weekTasks?.filter((t) => t.status === "active") || [];
-
-      // 시간 로그 합계 (이번 주)
-      const { data: timeLogs } = await supabase
-        .from("task_time_logs")
-        .select("duration_minutes")
-        .eq("user_id", member.user_id)
-        .gte("created_at", weekStart.toISOString());
-
-      const totalMinutes =
-        timeLogs?.reduce((sum, log) => sum + (log.duration_minutes || 0), 0) ||
-        0;
-
-      // 개인 포인트 계산
-      const memberPoints = completedTasks.length * 10;
-
-      return {
-        member: {
-          id: member.id,
-          group_id: member.group_id,
-          user_id: member.user_id,
-          role: member.role,
-          joined_at: member.joined_at,
-          user: {
-            id: member.user_id,
-            username: profile?.username || null,
-            full_name: profile?.full_name || null,
-            avatar_url: profile?.avatar_url || null,
-          },
-        },
-        progress: {
-          completedTasks: completedTasks.length,
-          activeTasks: activeTasks.length,
-          totalTasks: weekTasks?.length || 0,
-          totalTimeMinutes: totalMinutes,
-          points: memberPoints,
-          completionRate: weekTasks?.length
-            ? Math.round((completedTasks.length / weekTasks.length) * 100)
-            : 0,
-        },
-      };
-    })
+  // 각 멤버의 진행상황 조회 - RPC 함수 사용
+  // RPC로 모든 그룹 멤버의 태스크 조회
+  const { data: allGroupTasks, error: tasksRpcError } = await supabase.rpc(
+    "get_group_member_tasks",
+    { group_id_param: groupId }
   );
 
+  // RPC로 모든 그룹 멤버의 타임로그 조회
+  const { data: allGroupTimeLogs, error: timeLogsRpcError } =
+    await supabase.rpc("get_group_member_time_logs", {
+      group_id_param: groupId,
+    });
+
+  // RPC로 프로필 조회
+  const { data: rpcProfiles } = await supabase.rpc(
+    "get_group_member_profiles",
+    { group_id_param: groupId }
+  );
+
+  // 각 멤버의 진행상황 계산
+  const membersProgress = members.map((member) => {
+    // 프로필 정보 (RPC 결과에서 찾기)
+    const profile = rpcProfiles?.find((p: any) => p.user_id === member.user_id);
+
+    // 해당 멤버의 태스크들 필터링
+    const memberTasks =
+      allGroupTasks?.filter((t: any) => t.user_id === member.user_id) || [];
+
+    // 이번 주 태스크들 (week_start 기준)
+    const weekTasks = memberTasks.filter((t: any) => {
+      return t.week_start === weekStartStr;
+    });
+
+    // 전체 완료된 태스크
+    const allCompletedTasks = memberTasks.filter(
+      (t: any) => t.status === "completed"
+    );
+
+    // 이번 주 완료된 태스크
+    const weekCompletedTasks = weekTasks.filter(
+      (t: any) => t.status === "completed"
+    );
+
+    // 이번 주 활성 태스크
+    const weekActiveTasks = weekTasks.filter((t: any) => t.status === "active");
+
+    // 해당 멤버의 타임로그들 (이번 주)
+    const weekStartDate = new Date(weekStartStr);
+    const memberTimeLogs =
+      allGroupTimeLogs?.filter((log: any) => {
+        if (log.user_id !== member.user_id) return false;
+        const logDate = new Date(log.start_time);
+        return logDate >= weekStartDate;
+      }) || [];
+
+    // 총 시간 계산
+    const totalMinutes = memberTimeLogs.reduce(
+      (sum: number, log: any) => sum + (log.duration_minutes || 0),
+      0
+    );
+
+    // 개인 포인트 계산 (전체 완료된 태스크 기준)
+    const memberPoints = allCompletedTasks.length * 10;
+
+    return {
+      member: {
+        id: member.id,
+        group_id: member.group_id,
+        user_id: member.user_id,
+        role: member.role,
+        joined_at: member.joined_at,
+        user: {
+          id: member.user_id,
+          username: profile?.username || null,
+          full_name: profile?.full_name || "새 멤버",
+          avatar_url: profile?.avatar_url || null,
+        },
+      },
+      progress: {
+        completedTasks: weekCompletedTasks.length,
+        activeTasks: weekActiveTasks.length,
+        totalTasks: weekTasks.length,
+        totalTimeMinutes: totalMinutes,
+        points: memberPoints,
+        completionRate: weekTasks.length
+          ? Math.round((weekCompletedTasks.length / weekTasks.length) * 100)
+          : 0,
+      },
+    };
+  });
+
   // 포인트 순으로 정렬
-  return membersProgress.sort((a, b) => b.progress.points - a.progress.points);
+  const sortedProgress = membersProgress.sort(
+    (a, b) => b.progress.points - a.progress.points
+  );
+
+  return sortedProgress;
 };
 
 // 멤버 역할 변경 (owner만 가능)
