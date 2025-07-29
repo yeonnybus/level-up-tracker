@@ -117,19 +117,23 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md mx-auto">
-        <DialogHeader className="space-y-3 pb-6">
-          <DialogTitle className="text-2xl font-bold">
+      <DialogContent className="max-w-md mx-auto max-h-[90vh] flex flex-col">
+        <DialogHeader className="space-y-2 pb-4 flex-shrink-0">
+          <DialogTitle className="text-xl font-bold">
             새 태스크 만들기
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          <DialogDescription className="text-muted-foreground text-sm">
             목표를 설정하고 진행 상황을 추적할 새 태스크를 만드세요.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          id="create-task-form"
+          onSubmit={handleSubmit}
+          className="space-y-4 overflow-y-auto flex-1 pr-2"
+        >
           {/* 기본 정보 섹션 */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-sm font-medium">
                 태스크 제목 *
@@ -166,10 +170,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </div>
 
           {/* 태스크 유형 섹션 */}
-          <div className="space-y-4">
-            <div className="space-y-3">
+          <div className="space-y-3">
+            <div className="space-y-2">
               <Label className="text-sm font-medium">태스크 유형 *</Label>
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {[
                   {
                     value: "time" as TaskType,
@@ -189,7 +193,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 ].map((option) => (
                   <label
                     key={option.value}
-                    className={`flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`flex items-start space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${
                       taskType === option.value
                         ? "border-primary bg-primary/5"
                         : "border-muted hover:border-primary/50"
@@ -201,7 +205,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       value={option.value}
                       checked={taskType === option.value}
                       onChange={(e) => setTaskType(e.target.value as TaskType)}
-                      className="mt-1"
+                      className="mt-0.5"
                       disabled={isSubmitting}
                     />
                     <div className="flex-1">
@@ -217,10 +221,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </div>
 
           {/* 태스크 반복 설정 섹션 */}
-          <div className="space-y-4">
-            <div className="space-y-3">
+          <div className="space-y-3">
+            <div className="space-y-2">
               <Label className="text-sm font-medium">태스크 반복 설정</Label>
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {[
                   {
                     value: false,
@@ -235,7 +239,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 ].map((option) => (
                   <label
                     key={option.value.toString()}
-                    className={`flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`flex items-start space-x-2 p-2 rounded-lg border-2 cursor-pointer transition-all ${
                       isRecurring === option.value
                         ? "border-primary bg-primary/5"
                         : "border-muted hover:border-primary/50"
@@ -249,7 +253,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                       onChange={(e) =>
                         setIsRecurring(e.target.value === "true")
                       }
-                      className="mt-1"
+                      className="mt-0.5"
                       disabled={isSubmitting}
                     />
                     <div className="flex-1">
@@ -265,7 +269,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </div>
 
           {/* 목표 설정 섹션 */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Label className="text-sm font-medium">주간 목표 설정</Label>
 
             {(taskType === "time" || taskType === "time_and_quantity") && (
@@ -340,39 +344,44 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           {/* 전체 에러 메시지 */}
           {errors.submit && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <p className="text-red-600 dark:text-red-400 text-sm">
                 {errors.submit}
               </p>
             </div>
           )}
-
-          {/* 버튼 그룹 */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              취소
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  생성 중...
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  태스크 생성
-                </>
-              )}
-            </Button>
-          </div>
         </form>
+
+        {/* 버튼 그룹 - 하단 고정 */}
+        <div className="flex gap-3 pt-4 border-t mt-4 flex-shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            취소
+          </Button>
+          <Button
+            type="submit"
+            form="create-task-form"
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                생성 중...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                태스크 생성
+              </>
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
